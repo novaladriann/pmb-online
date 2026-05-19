@@ -1,0 +1,54 @@
+body {
+  background-color: #f5f7fb;
+}
+
+.hero-title {
+  font-size: 48px;
+  font-weight: 700;
+}
+
+.card-modern {
+  border: none;
+  border-radius: 20px;
+
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+
+  transition: 0.3s;
+}
+
+.card-modern:hover {
+  transform: translateY(-4px);
+}
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  position: fixed;
+  background: linear-gradient(180deg, #0d6efd, #0b5ed7);
+  padding: 25px;
+  color: white;
+}
+
+.sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px 15px;
+  margin-bottom: 10px;
+
+  border-radius: 12px;
+
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+
+  transition: 0.3s;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background: rgba(255, 255, 255, 0.15);
+
+  color: white;
+
+  transform: translateX(4px);
+}
