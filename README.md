@@ -242,7 +242,7 @@ Proyek ini menggunakan lisensi [MIT](LICENSE).
 
 **Noval Adrian**
 
-[![GitHub](https://img.shields.io/badge/GitHub-@novaladrian-181717?style=flat-square&logo=github)](https://github.com/novaladrian)
+[![GitHub](https://img.shields.io/badge/GitHub-@novaladrian-181717?style=flat-square&logo=github)](https://github.com/novaladriann)
 
 ---
 
