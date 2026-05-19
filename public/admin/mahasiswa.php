@@ -214,15 +214,8 @@ include '../../app/views/layouts/header.php';
 </style>
 
 <!-- SIDEBAR -->
-<div class="sidebar">
-    <h4 class="text-center fw-bold mb-4">ADMIN PMB</h4>
-    <a href="dashboard.php"><i class="bi bi-grid me-2"></i> Dashboard</a>
-    <a href="mahasiswa.php" class="sidebar-active"><i class="bi bi-people me-2"></i> Data Mahasiswa</a>
-    <a href="verifikasi.php"><i class="bi bi-file-earmark-check me-2"></i> Verifikasi Berkas</a>
-    <a href="pengumuman.php"><i class="bi bi-megaphone me-2"></i> Pengumuman</a>
-    <a href="../logout.php"><i class="bi bi-box-arrow-right me-2"></i> Logout</a>
-</div>
 
+<?php include '../../app/views/layouts/sidebar_admin.php'; ?>
 <div class="main-content">
 
     <!-- HEADER -->

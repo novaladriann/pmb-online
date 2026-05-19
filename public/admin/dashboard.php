@@ -1,6 +1,3 @@
-# File: public/admin/verifikasi_pembayaran.php
-
-```php
 <?php
 
 include '../../app/helpers/auth.php';
@@ -12,393 +9,224 @@ onlyAdmin();
 $user = $_SESSION['user'];
 
 // ============================================================
-// HANDLE VERIFIKASI PEMBAYARAN
+// STATISTIK UTAMA
 // ============================================================
-if (isset($_POST['verifikasi'])) {
-
-    $id      = (int) $_POST['id'];
-    $status  = $_POST['status_pembayaran'];
-    $catatan = mysqli_real_escape_string(
-        $conn,
-        $_POST['catatan_admin'] ?? ''
-    );
-
-    $allowed = [
-        'Menunggu Verifikasi',
-        'Terverifikasi',
-        'Ditolak'
-    ];
-
-    if (in_array($status, $allowed)) {
-
-        $statusDaftarUlang = (
-            $status == 'Terverifikasi'
-        )
-        ? 'Selesai'
-        : 'Pending';
-
-        mysqli_query($conn, "
-            UPDATE daftar_ulang
-            SET
-                status_pembayaran = '$status',
-                status_daftar_ulang = '$statusDaftarUlang',
-                catatan_admin = '$catatan'
-            WHERE id = '$id'
-        ");
-    }
-
-    header('Location: verifikasi_pembayaran.php?pesan=success');
-    exit;
-}
-
-// ============================================================
-// FILTER
-// ============================================================
-$filter = $_GET['filter'] ?? 'semua';
-
-$whereClause = '';
-
-if ($filter == 'menunggu') {
-    $whereClause = "AND du.status_pembayaran = 'Menunggu Verifikasi'";
-}
-elseif ($filter == 'terverifikasi') {
-    $whereClause = "AND du.status_pembayaran = 'Terverifikasi'";
-}
-elseif ($filter == 'ditolak') {
-    $whereClause = "AND du.status_pembayaran = 'Ditolak'";
-}
-
-// ============================================================
-// DATA PEMBAYARAN
-// ============================================================
-$data = mysqli_query($conn, "
+$stat = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT
-        du.*,
-        u.fullname,
-        u.email,
-        b.jurusan_pilihan,
-        b.asal_sekolah
+        COUNT(DISTINCT u.id)                                                           AS total_mahasiswa,
+        SUM(CASE WHEN COALESCE(d.status_verifikasi,'Belum Upload') = 'Menunggu Verifikasi' THEN 1 ELSE 0 END) AS menunggu_verifikasi,
+        SUM(CASE WHEN COALESCE(d.status_verifikasi,'Belum Upload') = 'Terverifikasi'       THEN 1 ELSE 0 END) AS berkas_terverifikasi,
+        SUM(CASE WHEN b.status_hasil = 'Diterima'       THEN 1 ELSE 0 END)            AS diterima,
+        SUM(CASE WHEN b.status_hasil = 'Tidak Diterima' THEN 1 ELSE 0 END)            AS tidak_diterima
+    FROM users u
+    LEFT JOIN biodata_mahasiswa b ON u.id = b.user_id
+    LEFT JOIN documents d ON u.id = d.user_id
+    WHERE u.role = 'mahasiswa'
+"));
 
-    FROM daftar_ulang du
-
-    JOIN users u
-        ON du.user_id = u.id
-
-    LEFT JOIN biodata_mahasiswa b
-        ON b.user_id = u.id
-
-    WHERE 1=1
-    $whereClause
-
-    ORDER BY du.created_at DESC
-");
-
-// ============================================================
-// STATISTIK
-// ============================================================
-$statQuery = mysqli_query($conn, "
+// Statistik pembayaran
+$statBayar = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT
-        COUNT(*) AS total,
-
-        SUM(
-            CASE
-                WHEN status_pembayaran = 'Menunggu Verifikasi'
-                THEN 1 ELSE 0
-            END
-        ) AS menunggu,
-
-        SUM(
-            CASE
-                WHEN status_pembayaran = 'Terverifikasi'
-                THEN 1 ELSE 0
-            END
-        ) AS terverifikasi,
-
-        SUM(
-            CASE
-                WHEN status_pembayaran = 'Ditolak'
-                THEN 1 ELSE 0
-            END
-        ) AS ditolak
-
+        COUNT(*)                                                                AS total_bayar,
+        SUM(CASE WHEN status_pembayaran = 'Menunggu Konfirmasi' THEN 1 ELSE 0 END)        AS menunggu_bayar,
+        SUM(CASE WHEN status_pembayaran = 'Dikonfirmasi'        THEN 1 ELSE 0 END)        AS lunas
     FROM daftar_ulang
-");
+")) ?: ['total_bayar' => 0, 'menunggu_bayar' => 0, 'lunas' => 0];
 
-$stat = mysqli_fetch_assoc($statQuery);
+// 5 pendaftar terbaru
+$terbaru = mysqli_query($conn, "
+    SELECT
+        u.id, u.fullname, u.email, u.created_at,
+        b.jurusan_pilihan,
+        COALESCE(d.status_verifikasi, 'Belum Upload') AS status_verifikasi
+    FROM users u
+    LEFT JOIN biodata_mahasiswa b ON u.id = b.user_id
+    LEFT JOIN documents d ON u.id = d.user_id
+    WHERE u.role = 'mahasiswa'
+    ORDER BY u.created_at DESC
+    LIMIT 5
+");
 
 include '../../app/views/layouts/header.php';
+include '../../app/views/layouts/sidebar_admin.php';
 ?>
-
-<div class="sidebar">
-
-    <h4 class="text-center fw-bold mb-4">ADMIN PMB</h4>
-
-    <a href="dashboard.php">
-        <i class="bi bi-grid"></i> Dashboard
-    </a>
-
-    <a href="mahasiswa.php">
-        <i class="bi bi-people"></i> Data Mahasiswa
-    </a>
-
-    <a href="verifikasi.php">
-        <i class="bi bi-file-earmark-check"></i> Verifikasi Berkas
-    </a>
-
-    <a href="pengumuman.php">
-        <i class="bi bi-megaphone"></i> Pengumuman
-    </a>
-
-    <a href="verifikasi_pembayaran.php"
-       style="background:rgba(255,255,255,0.2);">
-        <i class="bi bi-patch-check-fill"></i>
-        Verifikasi Pembayaran
-    </a>
-
-    <a href="../logout.php">
-        <i class="bi bi-box-arrow-right"></i> Logout
-    </a>
-
-</div>
 
 <div class="main-content">
 
     <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h2 class="fw-bold mb-1">
-                Verifikasi Pembayaran
-            </h2>
-
+            <h2 class="fw-bold mb-1">Dashboard Admin</h2>
             <p class="text-muted mb-0">
-                Kelola pembayaran daftar ulang mahasiswa
+                Selamat datang, <strong><?= htmlspecialchars($user['fullname']); ?></strong> —
+                <small><?= date('l, d F Y'); ?></small>
             </p>
         </div>
-
     </div>
-
-    <!-- ALERT -->
-    <?php if(isset($_GET['pesan'])): ?>
-
-        <div class="alert alert-success alert-dismissible fade show">
-            Verifikasi pembayaran berhasil diperbarui.
-            <button type="button"
-                    class="btn-close"
-                    data-bs-dismiss="alert"></button>
-        </div>
-
-    <?php endif; ?>
 
     <!-- STATISTIK -->
-    <div class="row mb-4">
+    <div class="row mb-4 g-3">
 
-        <div class="col-md-3 mb-3">
-            <a href="?filter=semua" class="text-decoration-none">
-                <div class="card card-modern p-3 border-start border-primary border-4">
-                    <h6 class="text-muted">Total</h6>
-                    <h3 class="fw-bold text-dark">
-                        <?= $stat['total'] ?>
-                    </h3>
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="mahasiswa.php" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-primary bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto">
+                        <i class="bi bi-people fs-4 text-primary"></i>
+                    </div>
+                    <div class="fw-bold fs-3"><?= $stat['total_mahasiswa']; ?></div>
+                    <div class="text-muted small">Total Pendaftar</div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-3 mb-3">
-            <a href="?filter=menunggu" class="text-decoration-none">
-                <div class="card card-modern p-3 border-start border-warning border-4">
-                    <h6 class="text-muted">Menunggu</h6>
-                    <h3 class="fw-bold text-warning">
-                        <?= $stat['menunggu'] ?>
-                    </h3>
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="verifikasi.php?filter=menunggu" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-warning bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto">
+                        <i class="bi bi-hourglass-split fs-4 text-warning"></i>
+                    </div>
+                    <div class="fw-bold fs-3 text-warning"><?= $stat['menunggu_verifikasi']; ?></div>
+                    <div class="text-muted small">Menunggu Verifikasi</div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-3 mb-3">
-            <a href="?filter=terverifikasi" class="text-decoration-none">
-                <div class="card card-modern p-3 border-start border-success border-4">
-                    <h6 class="text-muted">Terverifikasi</h6>
-                    <h3 class="fw-bold text-success">
-                        <?= $stat['terverifikasi'] ?>
-                    </h3>
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="verifikasi.php?filter=terverifikasi" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-info bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto">
+                        <i class="bi bi-patch-check fs-4 text-info"></i>
+                    </div>
+                    <div class="fw-bold fs-3 text-info"><?= $stat['berkas_terverifikasi']; ?></div>
+                    <div class="text-muted small">Berkas Terverifikasi</div>
                 </div>
             </a>
         </div>
 
-        <div class="col-md-3 mb-3">
-            <a href="?filter=ditolak" class="text-decoration-none">
-                <div class="card card-modern p-3 border-start border-danger border-4">
-                    <h6 class="text-muted">Ditolak</h6>
-                    <h3 class="fw-bold text-danger">
-                        <?= $stat['ditolak'] ?>
-                    </h3>
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="pengumuman.php?filter=diterima" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-success bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto">
+                        <i class="bi bi-check-circle fs-4 text-success"></i>
+                    </div>
+                    <div class="fw-bold fs-3 text-success"><?= $stat['diterima']; ?></div>
+                    <div class="text-muted small">Diterima</div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="pengumuman.php?filter=tidak_diterima" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-danger bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto">
+                        <i class="bi bi-x-circle fs-4 text-danger"></i>
+                    </div>
+                    <div class="fw-bold fs-3 text-danger"><?= $stat['tidak_diterima']; ?></div>
+                    <div class="text-muted small">Tidak Diterima</div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-2">
+            <a href="verifikasi_pembayaran.php" class="text-decoration-none">
+                <div class="card card-modern p-3 text-center h-100">
+                    <div class="bg-purple bg-opacity-10 rounded-3 p-2 mb-2 d-inline-block mx-auto"
+                         style="background:rgba(111,66,193,0.1)!important;">
+                        <i class="bi bi-credit-card-2-front fs-4" style="color:#6f42c1;"></i>
+                    </div>
+                    <div class="fw-bold fs-3" style="color:#6f42c1;"><?= $statBayar['menunggu_bayar']; ?></div>
+                    <div class="text-muted small">Menunggu Konfirmasi Bayar</div>
                 </div>
             </a>
         </div>
 
     </div>
 
-    <!-- TABEL -->
-    <div class="card card-modern">
+    <!-- AKSES CEPAT + PENDAFTAR TERBARU -->
+    <div class="row g-4">
 
-        <div class="card-body">
-
-            <div class="table-responsive">
-
-                <table class="table align-middle table-hover">
-
-                    <thead class="table-light">
-                    <tr>
-                        <th>No</th>
-                        <th>Mahasiswa</th>
-                        <th>Jurusan</th>
-                        <th>No Registrasi</th>
-                        <th>Total Bayar</th>
-                        <th>Bukti Transfer</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                    </thead>
-
-                    <tbody>
-
-                    <?php
-                    $no = 1;
-                    while($row = mysqli_fetch_assoc($data)):
-                    ?>
-
-                    <tr>
-
-                        <td><?= $no++ ?></td>
-
-                        <td>
-                            <div class="fw-semibold">
-                                <?= htmlspecialchars($row['fullname']) ?>
-                            </div>
-                            <small class="text-muted">
-                                <?= htmlspecialchars($row['email']) ?>
-                            </small>
-                        </td>
-
-                        <td>
-                            <?= htmlspecialchars($row['jurusan_pilihan']) ?>
-                        </td>
-
-                        <td>
-                            <span class="badge bg-dark">
-                                <?= $row['nomor_registrasi'] ?>
-                            </span>
-                        </td>
-
-                        <td>
-                            <strong class="text-success">
-                                Rp <?= number_format($row['total_pembayaran']) ?>
-                            </strong>
-                        </td>
-
-                        <td>
-
-                            <?php if(!empty($row['bukti_pembayaran'])): ?>
-
-                                <a href="../uploads/pembayaran/<?= $row['bukti_pembayaran'] ?>"
-                                   target="_blank"
-                                   class="btn btn-sm btn-primary">
-
-                                   <i class="bi bi-image"></i>
-                                   Lihat
-
-                                </a>
-
-                            <?php else: ?>
-
-                                <span class="text-muted">
-                                    Belum Upload
-                                </span>
-
-                            <?php endif; ?>
-
-                        </td>
-
-                        <td>
-
-                            <?php
-
-                            if($row['status_pembayaran'] == 'Terverifikasi') {
-
-                                echo '<span class="badge bg-success">Terverifikasi</span>';
-
-                            }
-                            elseif($row['status_pembayaran'] == 'Ditolak') {
-
-                                echo '<span class="badge bg-danger">Ditolak</span>';
-
-                            }
-                            else {
-
-                                echo '<span class="badge bg-warning text-dark">Menunggu</span>';
-
-                            }
-
-                            ?>
-
-                        </td>
-
-                        <td style="min-width:240px;">
-
-                            <form method="POST">
-
-                                <input type="hidden"
-                                       name="id"
-                                       value="<?= $row['id'] ?>">
-
-                                <select name="status_pembayaran"
-                                        class="form-select form-select-sm mb-2"
-                                        required>
-
-                                    <option value="">
-                                        Pilih Status
-                                    </option>
-
-                                    <option value="Terverifikasi">
-                                        Terverifikasi
-                                    </option>
-
-                                    <option value="Ditolak">
-                                        Ditolak
-                                    </option>
-
-                                </select>
-
-                                <textarea
-                                    name="catatan_admin"
-                                    class="form-control form-control-sm mb-2"
-                                    rows="2"
-                                    placeholder="Catatan admin..."></textarea>
-
-                                <button type="submit"
-                                        name="verifikasi"
-                                        class="btn btn-success btn-sm w-100">
-
-                                    <i class="bi bi-check-circle"></i>
-                                    Simpan
-
-                                </button>
-
-                            </form>
-
-                        </td>
-
-                    </tr>
-
-                    <?php endwhile; ?>
-
-                    </tbody>
-
-                </table>
-
+        <!-- AKSES CEPAT -->
+        <div class="col-lg-4">
+            <div class="card card-modern p-4 h-100">
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-lightning-charge text-warning me-2"></i>Akses Cepat
+                </h6>
+                <div class="d-grid gap-2">
+                    <a href="verifikasi.php?filter=menunggu" class="btn btn-outline-warning text-start">
+                        <i class="bi bi-file-earmark-check me-2"></i>
+                        Periksa Berkas Menunggu
+                        <?php if ($stat['menunggu_verifikasi'] > 0): ?>
+                            <span class="badge bg-warning text-dark float-end"><?= $stat['menunggu_verifikasi']; ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <a href="pengumuman.php?filter=menunggu" class="btn btn-outline-primary text-start">
+                        <i class="bi bi-megaphone me-2"></i>
+                        Proses Pengumuman
+                    </a>
+                    <a href="verifikasi_pembayaran.php" class="btn btn-outline-secondary text-start">
+                        <i class="bi bi-credit-card-2-front me-2"></i>
+                        Verifikasi Pembayaran
+                        <?php if ($statBayar['menunggu_bayar'] > 0): ?>
+                            <span class="badge bg-secondary float-end"><?= $statBayar['menunggu_bayar']; ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <a href="mahasiswa.php" class="btn btn-outline-success text-start">
+                        <i class="bi bi-people me-2"></i>
+                        Lihat Semua Mahasiswa
+                    </a>
+                </div>
             </div>
+        </div>
 
+        <!-- PENDAFTAR TERBARU -->
+        <div class="col-lg-8">
+            <div class="card card-modern p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-clock-history text-primary me-2"></i>Pendaftar Terbaru
+                    </h6>
+                    <a href="mahasiswa.php" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nama</th>
+                                <th>Jurusan</th>
+                                <th>Status Berkas</th>
+                                <th>Tgl. Daftar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php while ($row = mysqli_fetch_assoc($terbaru)): ?>
+                            <tr style="cursor:pointer;"
+                                onclick="location.href='verifikasi_detail.php?id=<?= $row['id']; ?>'">
+                                <td>
+                                    <div class="fw-semibold small"><?= htmlspecialchars($row['fullname']); ?></div>
+                                    <div class="text-muted" style="font-size:11px;"><?= htmlspecialchars($row['email']); ?></div>
+                                </td>
+                                <td class="small"><?= htmlspecialchars($row['jurusan_pilihan'] ?? '-'); ?></td>
+                                <td>
+                                    <?php
+                                    $sv = $row['status_verifikasi'];
+                                    if ($sv == 'Terverifikasi')
+                                        echo "<span class='badge bg-success'>✓ Terverifikasi</span>";
+                                    elseif ($sv == 'Menunggu Verifikasi')
+                                        echo "<span class='badge bg-warning text-dark'>⏳ Menunggu</span>";
+                                    elseif ($sv == 'Ditolak')
+                                        echo "<span class='badge bg-danger'>✗ Ditolak</span>";
+                                    else
+                                        echo "<span class='badge bg-secondary'>— Belum Upload</span>";
+                                    ?>
+                                </td>
+                                <td class="text-muted small"><?= date('d/m/Y', strtotime($row['created_at'])); ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
     </div>

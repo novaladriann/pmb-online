@@ -123,18 +123,8 @@ include '../../app/views/layouts/header.php';
 .unpublished-dot   { width:8px;height:8px;border-radius:50%;background:#adb5bd;display:inline-block; }
 </style>
 
-<div class="sidebar">
-    <h4 class="text-center fw-bold mb-4">ADMIN PMB</h4>
-    <a href="dashboard.php"><i class="bi bi-grid"></i> Dashboard</a>
-    <a href="mahasiswa.php"><i class="bi bi-people"></i> Data Mahasiswa</a>
-    <a href="verifikasi.php"><i class="bi bi-file-earmark-check"></i> Verifikasi Berkas</a>
-    <a href="pengumuman.php" style="background:rgba(255,255,255,0.2);">
-        <i class="bi bi-megaphone"></i> Pengumuman
-    </a>
-    <a href="verifikasi_pembayaran.php"><i class="bi bi-credit-card"></i> Verifikasi Pembayaran</a>
-    <a href="../logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
-</div>
 
+<?php include '../../app/views/layouts/sidebar_admin.php'; ?>
 <div class="main-content">
 
     <!-- HEADER -->
